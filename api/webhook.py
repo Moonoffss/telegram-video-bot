@@ -180,17 +180,34 @@ async def webhook_handler(request_body):
         logger.error(f"Ошибка обработки webhook: {e}")
         return {"statusCode": 500}
 
-# Vercel handler
-def handler(request):
-    """Главный обработчик для Vercel"""
-    if request.method == 'POST':
-        body = request.get_data(as_text=True)
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+from http.server import BaseHTTPRequestHandler
+import json
+
+class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        
         try:
-            result = loop.run_until_complete(webhook_handler(body))
-            return result
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            result = loop.run_until_complete(webhook_handler(post_data.decode('utf-8')))
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True}).encode())
+            
+        except Exception as e:
+            logger.error(f"Handler error: {e}")
+            self.send_response(500)
+            self.end_headers()
         finally:
             loop.close()
     
-    return {"statusCode": 405, "body": "Method not allowed"}
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b'Telegram Bot is running!')
