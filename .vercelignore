@@ -1,0 +1,6 @@
+# Ignore files for Vercel deployment
+__pycache__/
+*.pyc
+.git/
+.env
+*.log
