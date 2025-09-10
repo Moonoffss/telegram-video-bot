@@ -182,27 +182,34 @@ async def webhook_handler(request_body):
 
 from http.server import BaseHTTPRequestHandler
 
-def handler(request, response):
-    """Vercel handler function"""
-    if request.method == 'POST':
+class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
         try:
-            body = request.body.decode('utf-8')
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             
-            result = loop.run_until_complete(webhook_handler(body))
+            result = loop.run_until_complete(webhook_handler(post_data.decode('utf-8')))
             
-            response.status_code = 200
-            response.headers['Content-Type'] = 'application/json'
-            return json.dumps({"ok": True})
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True}).encode())
             
         except Exception as e:
             logger.error(f"Handler error: {e}")
-            response.status_code = 500
-            return json.dumps({"error": str(e)})
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": str(e)}).encode())
         finally:
-            loop.close()
+            if 'loop' in locals():
+                loop.close()
     
-    response.status_code = 200
-    response.headers['Content-Type'] = 'text/plain'
-    return 'Telegram Bot is running!'
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b'Telegram Bot is running!')
